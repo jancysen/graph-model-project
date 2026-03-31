@@ -5,7 +5,7 @@ import re
 from pathlib import Path
 from typing import Optional
 from dotenv import load_dotenv
-from openai import OpenAI
+import openai
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -23,10 +23,11 @@ app.add_middleware(
 
 # ── Config ────────────────────────────────────────────────────────────────────
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
-OPENROUTER_MODEL   = os.getenv("OPENROUTER_MODEL", "google/gemini-2.0-flash-001")
+OPENROUTER_MODEL   = os.getenv("OPENROUTER_MODEL", "google/gemini-pro")
 DB_PATH = Path(__file__).parent / "data" / "o2c.db"
 DATA_DIR = Path(__file__).parent / "data" / "raw"
-
+openai.api_key = OPENROUTER_API_KEY
+openai.api_base = "https://openrouter.ai/api/v1"
 # ── DB Schema (for LLM context) ───────────────────────────────────────────────
 SCHEMA_DESCRIPTION = """
 SQLite database with these tables (SAP Order-to-Cash data):
@@ -279,29 +280,28 @@ def build_graph_data():
     return {"nodes": list(nodes.values()), "edges": edges}
 
 # ── LLM Query ─────────────────────────────────────────────────────────────────
-def _openrouter_client() -> OpenAI:
-    if not OPENROUTER_API_KEY:
-        raise HTTPException(status_code=500, detail="OPENROUTER_API_KEY not set")
-    return OpenAI(
-        api_key=OPENROUTER_API_KEY,
-        base_url="https://openrouter.ai/api/v1",
-    )
+
 
 def query_llm(user_question: str) -> dict:
-    client = _openrouter_client()
-
+    if not OPENROUTER_API_KEY:
+        raise HTTPException(status_code=500, detail="OPENROUTER_API_KEY not set")
+    
     prompt = f"""{GUARDRAIL_SYSTEM}
 
 User question: {user_question}
 
 Respond with valid JSON only. No markdown, no backticks."""
 
-    response = client.chat.completions.create(
-        model=OPENROUTER_MODEL,
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0,
-    )
-    raw = response.choices[0].message.content.strip()
+   try:
+        response = openai.ChatCompletion.create(
+            model=OPENROUTER_MODEL,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"LLM error: {str(e)}")
+
+    raw = response["choices"][0]["message"]["content"].strip()
 
     # Strip markdown code fences if present
     raw = re.sub(r"^```json\s*", "", raw)
@@ -396,7 +396,7 @@ def query(req: QueryRequest):
     data = run_sql(sql)
 
     # Ask OpenRouter to summarize the results
-    client = _openrouter_client()
+    
     rows_preview = json.dumps(data["rows"][:10], indent=2)
     total = len(data["rows"])
 
@@ -408,12 +408,12 @@ First 10 rows: {rows_preview}
 
 Be specific with numbers. Do not make up data not in the results. Keep it concise."""
 
-    summary_resp = client.chat.completions.create(
+    summary_resp = openai.ChatCompletion.create(
         model=OPENROUTER_MODEL,
         messages=[{"role": "user", "content": summary_prompt}],
         temperature=0.3,
     )
-    answer = summary_resp.choices[0].message.content.strip()
+    answer = summary_resp["choices"][0]["message"]["content"].strip()
 
     highlighted_node_ids = extract_highlighted_nodes(data["columns"], data["rows"])
 
@@ -421,6 +421,7 @@ Be specific with numbers. Do not make up data not in the results. Keep it concis
         "answer": answer,
         "sql": sql,
         "explanation": explanation,
+        
         "data": data,
         "off_topic": False,
         "highlighted_node_ids": highlighted_node_ids,
