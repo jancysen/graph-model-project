@@ -2,8 +2,7 @@
 
 A context graph system with an LLM-powered natural language query interface for SAP Order-to-Cash data.
 
-Live demo: [your-vercel-url]  
-Backend: [your-railway-url]
+
 
 ---
 
@@ -214,3 +213,8 @@ npm run dev
 | Frontend | React + Vite + Tailwind | Fast dev, small bundle |
 | Backend hosting | Railway | Supports Docker, free tier available |
 | Frontend hosting | Vercel | Zero-config for Vite apps |
+
+
+----
+## 👨‍💻 Author
+Jancy Sen
