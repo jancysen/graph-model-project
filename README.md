@@ -1,6 +1,14 @@
 # O2C Graph Explorer
 
-A context graph system with an LLM-powered natural language query interface for SAP Order-to-Cash data.
+🚀 Developed by: **Jancy Sen**
+
+A graph-based system with an LLM-powered natural language query interface for SAP Order-to-Cash (O2C) data.
+----
+## ⚡ Quick Overview
+- Converts SAP O2C data into a graph structure
+- Enables natural language querying using LLM (Gemini)
+- Generates SQL automatically and returns insights
+- Visualizes relationships between business entities
 
 
 
