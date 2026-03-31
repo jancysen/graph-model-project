@@ -292,7 +292,7 @@ User question: {user_question}
 
 Respond with valid JSON only. No markdown, no backticks."""
 
-   try:
+    try:
         response = openai.ChatCompletion.create(
             model=OPENROUTER_MODEL,
             messages=[{"role": "user", "content": prompt}],
